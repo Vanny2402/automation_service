@@ -1,0 +1,30 @@
+# logs
+logs
+*.log
+*.log*
+yarn.lock
+package-lock.json
+
+node_modules
+out
+dist
+.DS_Store
+pnpm-lock.yaml
+LICENSE.md
+tsconfig.json
+tsconfig.*.json
+dist-ssr
+coverage
+*.local
+.env
+deploy.sh
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
