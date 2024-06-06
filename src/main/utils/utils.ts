@@ -24,11 +24,13 @@ export function getBinariesPath() {
   const { isPackaged } = app
 
   const binariesPath = isPackaged
-    ? path.join(process.resourcesPath, './bin')
+    ? path.join(process.resourcesPath, 'bin')
     : path.join(app.getAppPath(), 'resources', getPlatform())
 
   return binariesPath
 }
+
+export const adbDir = getBinariesPath()
 
 export const adbBinaryPath = path.resolve(
   path.join(getBinariesPath(), process.platform === 'win32' ? 'adb.exe' : 'adb')

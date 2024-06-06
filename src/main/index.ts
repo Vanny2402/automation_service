@@ -4,11 +4,24 @@ import { app, BrowserWindow, ipcMain, Tray, nativeImage, Menu } from 'electron'
 // import icon from '../../resources/icon.png?asset'
 import { exec } from 'child_process'
 import NodeServer from './components/node-server'
-import { adbBinaryPath } from './utils/utils'
+import { adbBinaryPath, adbDir } from './utils/utils'
+import { DeviceMonitor, processDeleteOldServerTest } from './utils/device'
+import Store from 'electron-store'
 
 let tray: Tray | null = null
 const servers: { [port: string]: NodeServer } = {}
 const appiumPort: number = 4723
+const deviceMonitor = new DeviceMonitor()
+
+type StoreType = {
+  connectedDevices: string[]
+}
+
+const store = new Store<StoreType>({
+  defaults: {
+    connectedDevices: []
+  }
+})
 
 // function createWindow(): void {
 //   const mainWindow = new BrowserWindow({
@@ -66,33 +79,81 @@ function createTray(): void {
 }
 
 app.whenReady().then(() => {
+  process.env.ANDROID_HOME = adbDir
   electronApp.setAppUserModelId('com.electron')
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
 
   ipcMain.on('ping', () => console.log('pong'))
+  deviceMonitor.on('devicesDetected', (devices) => {
+    let connectedDevices = store.get('connectedDevices') || []
+    const newDevices = devices.filter((device) => !connectedDevices.includes(device))
+
+    if (newDevices.length > 0) {
+      processDeleteOldServerTest(newDevices, () => {
+        console.log('Old server test deleted successfully.')
+      })
+      store.set(
+        'connectedDevices',
+        (connectedDevices = connectedDevices.concat(
+          newDevices.filter((device) => !connectedDevices.includes(device))
+        ))
+      )
+    } else {
+      console.log('No new devices detected.')
+    }
+  })
 
   createTray()
-  startADB()
-  startAppium(appiumPort)
   // createWindow()
+  try {
+    startADB()
+  } catch (adbError) {
+    console.error('Error starting ADB:', adbError)
+  }
+
+  try {
+    startAppium(appiumPort)
+  } catch (appiumError) {
+    console.error('Error starting Appium:', appiumError)
+  }
 
   app.on('activate', function () {
+    process.env.ANDROID_HOME = adbDir
     if (BrowserWindow.getAllWindows().length === 0) {
       createTray()
-      startADB()
-      startAppium(appiumPort)
+      try {
+        startADB()
+      } catch (adbError) {
+        console.error('Error starting ADB:', adbError)
+      }
+
+      try {
+        startAppium(appiumPort)
+      } catch (appiumError) {
+        console.error('Error starting Appium:', appiumError)
+      }
       // createWindow()
     }
   })
 })
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
   try {
     if (process.platform !== 'darwin') {
-      stopADB()
-      stopAppium(appiumPort)
+      try {
+        await stopADB()
+      } catch (adbError) {
+        console.error('Error stopping ADB:', adbError)
+      }
+
+      try {
+        await stopAppium(appiumPort)
+      } catch (appiumError) {
+        console.error('Error stopping Appium:', appiumError)
+      }
+
       app.quit()
     }
   } catch (error) {
@@ -167,8 +228,7 @@ async function startAppium(port: number): Promise<NodeServer | null> {
     const portInUse = await isPortInUse(port)
 
     if (portInUse) {
-      console.log(`Port ${port} is already in use. Appium server not started.`)
-      return null
+      await stopAppium(port)
     }
 
     const appiumServer = new NodeServer({ port: port })
@@ -200,8 +260,18 @@ async function stopAppium(port: number): Promise<void> {
 
 async function quit(): Promise<void> {
   try {
-    await stopADB()
-    await stopAppium(appiumPort)
+    try {
+      await stopADB()
+    } catch (adbError) {
+      console.error('Error stopping ADB:', adbError)
+    }
+
+    try {
+      await stopAppium(appiumPort)
+    } catch (appiumError) {
+      console.error('Error stopping Appium:', appiumError)
+    }
+    store.clear()
     app.quit()
     console.log('Application quit successfully.')
   } catch (error) {
@@ -211,12 +281,21 @@ async function quit(): Promise<void> {
 
 async function restart(): Promise<void> {
   try {
-    await stopADB()
-    await startAppium(appiumPort)
-    app.relaunch()
-    app.exit(0)
+    try {
+      await stopADB()
+    } catch (adbError) {
+      console.error('Error stopping ADB:', adbError)
+    }
 
-    console.log('Application quit successfully.')
+    try {
+      await stopAppium(appiumPort)
+    } catch (appiumError) {
+      console.error('Error stopping Appium:', appiumError)
+    }
+    app.exit(0)
+    app.relaunch()
+
+    console.log('Application restarted successfully.')
   } catch (error) {
     console.error('Error during restart process:', error)
   }
