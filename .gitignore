@@ -11,8 +11,6 @@ dist
 .DS_Store
 pnpm-lock.yaml
 LICENSE.md
-tsconfig.json
-tsconfig.*.json
 dist-ssr
 coverage
 *.local
