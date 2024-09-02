@@ -16,9 +16,11 @@ public class DeviceController {
     @Autowired
     private CapabalityService capabilityService;
 
+ 
     @GetMapping("/adbDevice")
     @CrossOrigin(origins = "*")
     public List<CapabilityModel> getDeviceCapabilities() {
+    	capabilityService.sendDeviceCapabilitiesToServer();
         return capabilityService.getConnectedDevices();
     }
 }
