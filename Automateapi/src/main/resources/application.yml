@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: Automateapi
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/automation_service  # Ensure correct host and port
+    username: phonshop_night
+    password: admin
+  jpa:
+    hibernate:
+      ddl-auto: update  # or create-drop for development purposes
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format-sql: true
+      show-sql: true
